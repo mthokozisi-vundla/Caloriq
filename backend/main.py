@@ -7,6 +7,13 @@ class Food(BaseModel):
     calories: int
     protein: float
 
+class User(BaseModel):
+    name: str
+    age: int
+    height: float
+    weight: float
+    goal: str
+
 app = FastAPI()
 
 @app.get("/")
@@ -136,4 +143,149 @@ def delete_food(food_id: int):
     return {          #type: ignore
         "message": "Food deleted successfully",
         "id": food_id
+    }
+
+@app.post("/users")
+def create_user(user: User):
+
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO users (name, age, height, weight, goal)
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (
+            user.name,
+            user.age,
+            user.height,
+            user.weight,
+            user.goal
+        )
+    )
+
+    connection.commit()
+
+    user_id = cursor.lastrowid
+
+    return { #type: ignore
+        "id": user_id,
+        "name": user.name,
+        "age": user.age,
+        "height": user.height,
+        "weight": user.weight,
+        "goal": user.goal
+    }
+@app.get("/users")
+def get_users():
+
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT * FROM users")
+
+    users = cursor.fetchall()
+
+    return [
+        { #type: ignore
+            "id": user[0],
+            "name": user[1],
+            "age": user[2],
+            "height": float(user[3]),
+            "weight": float(user[4]),
+            "goal": user[5]
+        }
+        for user in users
+    ]
+
+@app.get("/users/{user_id}")
+def get_user(user_id: int):
+
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return { #type: ignore
+        "id": user[0],
+        "name": user[1],
+        "age": user[2],
+        "height": float(user[3]),
+        "weight": float(user[4]),
+        "goal": user[5]
+    }
+
+@app.put("/users/{user_id}")
+def update_user(user_id: int, user: User):
+
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (user_id,)
+    )
+
+    existing_user = cursor.fetchone()
+
+    if existing_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET name = %s, age = %s, height = %s, weight = %s, goal = %s
+        WHERE id = %s
+        """,
+        (
+            user.name,
+            user.age,
+            user.height,
+            user.weight,
+            user.goal,
+            user_id
+        )
+    )
+
+    connection.commit()
+
+    return {        #type: ignore
+        "id": user_id,
+        "name": user.name,
+        "age": user.age,
+        "height": user.height,
+        "weight": user.weight,
+        "goal": user.goal
+    }
+
+@app.delete("/users/{user_id}")
+def delete_user(user_id: int):
+
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    cursor.execute(
+        "DELETE FROM users WHERE id = %s",
+        (user_id,)
+    )
+
+    connection.commit()
+
+    return {        #type: ignore
+        "message": "User deleted successfully",
+        "id": user_id
     }
