@@ -13,8 +13,35 @@ class User(BaseModel):
     height: float
     weight: float
     goal: str
+    sex: str
+    activity_level: str
+
+class FoodEntry(BaseModel):
+    user_id: int
+    food_id: int
+    quantity: int
+    meal: str
+    entry_date: str | None = None
+
+class WeightEntry(BaseModel):
+    user_id: int
+    weight: float
+    entry_date: str | None = None
+
+class Note(BaseModel):
+    user_id: int
+    content: str
+    date: str | None = None
 
 app = FastAPI()
+
+ACTIVITY_FACTORS = {
+    "sedentary": 1.2,
+    "lightly active": 1.375,
+    "moderately active": 1.55,
+    "very active": 1.725,
+    "extra active": 1.9
+}
 
 @app.get("/")
 def home():
@@ -152,14 +179,16 @@ def create_user(user: User):
 
     cursor.execute(
         """
-        INSERT INTO users (name, age, height, weight, goal)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO users (name, age, sex, height, weight, activity_level, goal)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
         (
             user.name,
             user.age,
+            user.sex,
             user.height,
             user.weight,
+            user.activity_level,
             user.goal
         )
     )
@@ -174,11 +203,13 @@ def create_user(user: User):
         "age": user.age,
         "height": user.height,
         "weight": user.weight,
-        "goal": user.goal
+        "goal": user.goal,
+        "sex": user.sex,
+        "activity_level": user.activity_level
     }
+
 @app.get("/users")
 def get_users():
-
     cursor = connection.cursor()
 
     cursor.execute("SELECT * FROM users")
@@ -192,7 +223,9 @@ def get_users():
             "age": user[2],
             "height": float(user[3]),
             "weight": float(user[4]),
-            "goal": user[5]
+            "goal": user[5],
+            "sex": user[6],
+            "activity_level": user[7]
         }
         for user in users
     ]
@@ -218,7 +251,9 @@ def get_user(user_id: int):
         "age": user[2],
         "height": float(user[3]),
         "weight": float(user[4]),
-        "goal": user[5]
+        "goal": user[5],
+        "sex": user[6],
+        "activity_level": user[7]
     }
 
 @app.put("/users/{user_id}")
@@ -239,7 +274,13 @@ def update_user(user_id: int, user: User):
     cursor.execute(
         """
         UPDATE users
-        SET name = %s, age = %s, height = %s, weight = %s, goal = %s
+        SET name = %s,
+          age = %s, 
+          height = %s, 
+          weight = %s, 
+          goal = %s, 
+          sex = %s, 
+          activity_level = %s
         WHERE id = %s
         """,
         (
@@ -248,6 +289,8 @@ def update_user(user_id: int, user: User):
             user.height,
             user.weight,
             user.goal,
+            user.sex,
+            user.activity_level,
             user_id
         )
     )
@@ -260,7 +303,9 @@ def update_user(user_id: int, user: User):
         "age": user.age,
         "height": user.height,
         "weight": user.weight,
-        "goal": user.goal
+        "goal": user.goal,
+        "sex": user.sex,
+        "activity_level": user.activity_level
     }
 
 @app.delete("/users/{user_id}")
@@ -288,4 +333,844 @@ def delete_user(user_id: int):
     return {        #type: ignore
         "message": "User deleted successfully",
         "id": user_id
+    }
+
+@app.get("/users/{user_id}/calorie-target")
+def get_calorie_target(user_id: int):
+
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    weight = float(user[4])
+    height = float(user[3])
+    age = user[2]
+    sex = user[6]
+    activity_level = user[7]
+    goal = user[5]
+
+    if sex == "male":
+        bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5
+    else:
+        bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161
+
+    activity_factor = ACTIVITY_FACTORS.get(activity_level)
+
+    if activity_factor is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid activity level"
+        )
+
+    tdee = bmr * activity_factor
+
+    if goal == "weight loss":
+        calorie_target = tdee - 500
+    elif goal == "weight gain":
+        calorie_target = tdee + 300
+    else:
+        calorie_target = tdee
+
+    return { #type: ignore
+        "user_id": user_id,
+        "bmr": round(bmr),
+        "tdee": round(tdee),
+        "goal": goal,
+        "daily_calorie_target": round(calorie_target)
+    }
+
+@app.post("/food-entries")
+def create_food_entry(entry: FoodEntry):
+
+    cursor = connection.cursor()
+
+    # Check that the user exists
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (entry.user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Check that the food exists
+    cursor.execute(
+        "SELECT * FROM foods WHERE id = %s",
+        (entry.food_id,)
+    )
+
+    food = cursor.fetchone()
+
+    if food is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Food not found"
+        )
+
+    # Make sure quantity is greater than 0
+    if entry.quantity <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Quantity must be greater than 0"
+        )
+
+    # Save the food entry
+    cursor.execute(
+        """
+        INSERT INTO food_entries
+        (user_id, food_id, quantity, meal, entry_date)
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (
+            entry.user_id,
+            entry.food_id,
+            entry.quantity,
+            entry.meal,
+            entry.entry_date
+        )
+    )
+
+    connection.commit()
+
+    entry_id = cursor.lastrowid
+
+    return { # type: ignore
+        "id": entry_id,
+        "user_id": entry.user_id,
+        "food_id": entry.food_id,
+        "quantity": entry.quantity,
+        "meal": entry.meal,
+        "entry_date": entry.entry_date
+    }
+
+@app.get("/users/{user_id}/food-entries")
+def get_food_entries(user_id: int):
+
+    cursor = connection.cursor()
+
+    # Check that the user exists
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Get food entries and their food information
+    cursor.execute(
+        """
+        SELECT
+            food_entries.id,
+            food_entries.user_id,
+            food_entries.food_id,
+            foods.name,
+            foods.calories,
+            foods.protein,
+            food_entries.quantity,
+            food_entries.meal,
+            food_entries.entry_date
+        FROM food_entries
+        JOIN foods
+            ON food_entries.food_id = foods.id
+        WHERE food_entries.user_id = %s
+        """,
+        (user_id,)
+    )
+
+    entries = cursor.fetchall()
+
+    return [
+        { # type: ignore
+            "id": entry[0],
+            "user_id": entry[1],
+            "food_id": entry[2],
+            "food_name": entry[3],
+            "calories_per_unit": entry[4],
+            "protein_per_unit": float(entry[5]),
+            "quantity": entry[6],
+            "meal": entry[7],
+            "entry_date": str(entry[8]),
+            "total_calories": entry[4] * entry[6],
+            "total_protein": float(entry[5]) * entry[6]
+        }
+        for entry in entries
+    ]
+
+@app.get("/users/{user_id}/daily-summary")
+def get_daily_summary(user_id: int):
+
+    cursor = connection.cursor()
+
+    # Check that the user exists
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Get today's date
+    cursor.execute(
+        """
+        SELECT
+            COALESCE(SUM(food_entries.quantity * foods.calories), 0),
+            COALESCE(SUM(food_entries.quantity * foods.protein), 0)
+        FROM food_entries
+        JOIN foods
+            ON food_entries.food_id = foods.id
+        WHERE food_entries.user_id = %s
+        AND food_entries.entry_date = CURDATE()
+        """,
+        (user_id,)
+    )
+
+    totals = cursor.fetchone()
+
+    calories_consumed = totals[0]
+    protein_consumed = totals[1]
+
+    # Get the user's daily calorie target
+    weight = float(user[4])
+    height = float(user[3])
+    age = user[2]
+    sex = user[6]
+    activity_level = user[7]
+    goal = user[5]
+
+    if sex == "male":
+        bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5
+    else:
+        bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161
+
+    activity_factor = ACTIVITY_FACTORS.get(activity_level)
+
+    if activity_factor is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid activity level"
+        )
+
+    tdee = bmr * activity_factor
+
+    if goal == "weight loss":
+        calorie_target = tdee - 500
+    elif goal == "weight gain":
+        calorie_target = tdee + 300
+    else:
+        calorie_target = tdee
+
+    daily_calorie_target = round(calorie_target)
+    calories_remaining = daily_calorie_target - calories_consumed
+
+    return {        #type: ignore
+        "user_id": user_id,
+        "date": str(__import__("datetime").date.today()),
+        "daily_calorie_target": daily_calorie_target,
+        "calories_consumed": calories_consumed,
+        "calories_remaining": calories_remaining,
+        "protein_consumed": float(protein_consumed)
+    }
+
+
+@app.delete("/food-entries/{entry_id}")
+def delete_food_entry(entry_id: int):
+
+    cursor = connection.cursor()
+
+    # Check that the food entry exists
+    cursor.execute(
+        "SELECT * FROM food_entries WHERE id = %s",
+        (entry_id,)
+    )
+
+    entry = cursor.fetchone()
+
+    if entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Food entry not found"
+        )
+
+    # Delete the food entry
+    cursor.execute(
+        "DELETE FROM food_entries WHERE id = %s",
+        (entry_id,)
+    )
+
+    connection.commit()
+
+    return {       #type: ignore
+        "message": "Food entry deleted successfully",
+        "id": entry_id
+    }
+
+@app.put("/food-entries/{entry_id}")
+def update_food_entry(entry_id: int, entry: FoodEntry):
+
+    cursor = connection.cursor()
+
+    # Check that the food entry exists
+    cursor.execute(
+        "SELECT * FROM food_entries WHERE id = %s",
+        (entry_id,)
+    )
+
+    existing_entry = cursor.fetchone()
+
+    if existing_entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Food entry not found"
+        )
+
+    # Check that the user exists
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (entry.user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Check that the food exists
+    cursor.execute(
+        "SELECT * FROM foods WHERE id = %s",
+        (entry.food_id,)
+    )
+
+    food = cursor.fetchone()
+
+    if food is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Food not found"
+        )
+
+    # Make sure quantity is greater than 0
+    if entry.quantity <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Quantity must be greater than 0"
+        )
+
+    # Update the food entry
+    cursor.execute(
+        """
+        UPDATE food_entries
+        SET user_id = %s,
+            food_id = %s,
+            quantity = %s,
+            meal = %s,
+            entry_date = %s
+        WHERE id = %s
+        """,
+        (
+            entry.user_id,
+            entry.food_id,
+            entry.quantity,
+            entry.meal,
+            entry.entry_date,
+            entry_id
+        )
+    )
+
+    connection.commit()
+
+    return {       #type: ignore
+        "message": "Food entry updated successfully",
+        "id": entry_id,
+        "user_id": entry.user_id,
+        "food_id": entry.food_id,
+        "quantity": entry.quantity,
+        "meal": entry.meal,
+        "entry_date": entry.entry_date
+    }
+
+@app.post("/weight-entries")
+def create_weight_entry(entry: WeightEntry):
+
+    cursor = connection.cursor()
+
+    # Check that the user exists
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (entry.user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Make sure weight is greater than 0
+    if entry.weight <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Weight must be greater than 0"
+        )
+
+    # Save the weight entry
+    cursor.execute(
+        """
+        INSERT INTO weight_entries
+        (user_id, weight, date)
+        VALUES (%s, %s, %s)
+        """,
+        (
+            entry.user_id,
+            entry.weight,
+            entry.entry_date
+        )
+    )
+
+    connection.commit()
+
+    entry_id = cursor.lastrowid
+
+    return {   #type: ignore
+        "id": entry_id,
+        "user_id": entry.user_id,
+        "weight": entry.weight,
+        "entry_date": entry.entry_date
+    }
+
+@app.get("/users/{user_id}/weight-entries")
+def get_weight_entries(user_id: int):
+
+    cursor = connection.cursor()
+
+    # Check that the user exists
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Get the user's weight history
+    cursor.execute(
+        """
+        SELECT
+            id,
+            user_id,
+            weight,
+            date
+        FROM weight_entries
+        WHERE user_id = %s
+        ORDER BY date DESC
+        """,
+        (user_id,)
+    )
+
+    entries = cursor.fetchall()
+
+    return [     #type: ignore
+        {
+            "id": entry[0],
+            "user_id": entry[1],
+            "weight": float(entry[2]),
+            "date": str(entry[3])
+        }
+        for entry in entries
+    ]
+
+@app.get("/users/{user_id}/weight-summary")
+def get_weight_summary(user_id: int):
+
+    cursor = connection.cursor()
+
+    # Check that the user exists
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Get the first recorded weight
+    cursor.execute(
+        """
+        SELECT weight
+        FROM weight_entries
+        WHERE user_id = %s
+        ORDER BY date ASC, id ASC
+        LIMIT 1
+        """,
+        (user_id,)
+    )
+
+    first_entry = cursor.fetchone()
+
+    # Get the most recent recorded weight
+    cursor.execute(
+        """
+        SELECT weight
+        FROM weight_entries
+        WHERE user_id = %s
+        ORDER BY date DESC, id DESC
+        LIMIT 1
+        """,
+        (user_id,)
+    )
+
+    latest_entry = cursor.fetchone()
+
+    # No weight records yet
+    if first_entry is None or latest_entry is None:
+        return {     #type: ignore
+            "user_id": user_id,
+            "starting_weight": None,
+            "current_weight": None,
+            "weight_change": None
+        }
+
+    starting_weight = float(first_entry[0])
+    current_weight = float(latest_entry[0])
+
+    weight_change = current_weight - starting_weight
+
+    return {    #type: ignore
+        "user_id": user_id,
+        "starting_weight": starting_weight,
+        "current_weight": current_weight,
+        "weight_change": weight_change
+    }
+
+@app.put("/weight-entries/{entry_id}")
+def update_weight_entry(entry_id: int, entry: WeightEntry):
+
+    cursor = connection.cursor()
+
+    # Check that the weight entry exists
+    cursor.execute(
+        "SELECT * FROM weight_entries WHERE id = %s",
+        (entry_id,)
+    )
+
+    existing_entry = cursor.fetchone()
+
+    if existing_entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Weight entry not found"
+        )
+
+    # Check that the user exists
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (entry.user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Make sure weight is greater than 0
+    if entry.weight <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Weight must be greater than 0"
+        )
+
+    # Update the weight entry
+    cursor.execute(
+        """
+        UPDATE weight_entries
+        SET user_id = %s,
+            weight = %s,
+            date = %s
+        WHERE id = %s
+        """,
+        (
+            entry.user_id,
+            entry.weight,
+            entry.entry_date,
+            entry_id
+        )
+    )
+
+    connection.commit()
+
+    return {      #type: ignore
+        "message": "Weight entry updated successfully",
+        "id": entry_id,
+        "user_id": entry.user_id,
+        "weight": entry.weight,
+        "entry_date": entry.entry_date
+    }
+
+@app.delete("/weight-entries/{entry_id}")
+def delete_weight_entry(entry_id: int):
+
+    cursor = connection.cursor()
+
+    # Check that the weight entry exists
+    cursor.execute(
+        "SELECT * FROM weight_entries WHERE id = %s",
+        (entry_id,)
+    )
+
+    entry = cursor.fetchone()
+
+    if entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Weight entry not found"
+        )
+
+    # Delete the weight entry
+    cursor.execute(
+        "DELETE FROM weight_entries WHERE id = %s",
+        (entry_id,)
+    )
+
+    connection.commit()
+
+    return {       #type: ignore
+        "message": "Weight entry deleted successfully",
+        "id": entry_id
+    }
+
+@app.post("/notes")
+def create_note(note: Note):
+
+    cursor = connection.cursor()
+
+    # Check that the user exists
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (note.user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Make sure the note is not empty
+    if not note.content.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Note content cannot be empty"
+        )
+
+    # Save the note
+    cursor.execute(
+        """
+        INSERT INTO notes
+        (user_id, content, date)
+        VALUES (%s, %s, %s)
+        """,
+        (
+            note.user_id,
+            note.content,
+            note.date
+        )
+    )
+
+    connection.commit()
+
+    note_id = cursor.lastrowid
+
+    return {      #type: ignore
+        "id": note_id,
+        "user_id": note.user_id,
+        "content": note.content,
+        "date": note.date
+    }
+
+@app.get("/users/{user_id}/notes")
+def get_notes(user_id: int):
+
+    cursor = connection.cursor()
+
+    # Check that the user exists
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Get the user's notes
+    cursor.execute(
+        """
+        SELECT
+            id,
+            user_id,
+            content,
+            date
+        FROM notes
+        WHERE user_id = %s
+        ORDER BY date DESC, id DESC
+        """,
+        (user_id,)
+    )
+
+    notes = cursor.fetchall()
+
+    return [    #type: ignore
+        {
+            "id": note[0],
+            "user_id": note[1],
+            "content": note[2],
+            "date": str(note[3])
+        }
+        for note in notes
+    ]
+@app.put("/notes/{note_id}")
+def update_note(note_id: int, note: Note):
+
+    cursor = connection.cursor()
+
+    # Check that the note exists
+    cursor.execute(
+        "SELECT * FROM notes WHERE id = %s",
+        (note_id,)
+    )
+
+    existing_note = cursor.fetchone()
+
+    if existing_note is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Note not found"
+        )
+
+    # Check that the user exists
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (note.user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # Make sure the note is not empty
+    if not note.content.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Note content cannot be empty"
+        )
+
+    # Update the note
+    cursor.execute(
+        """
+        UPDATE notes
+        SET user_id = %s,
+            content = %s,
+            date = %s
+        WHERE id = %s
+        """,
+        (
+            note.user_id,
+            note.content,
+            note.date,
+            note_id
+        )
+    )
+
+    connection.commit()
+
+    return {      #type: ignore
+        "message": "Note updated successfully",
+        "id": note_id,
+        "user_id": note.user_id,
+        "content": note.content,
+        "date": note.date
+    }
+
+@app.delete("/notes/{note_id}")
+def delete_note(note_id: int):
+
+    cursor = connection.cursor()
+
+    # Check that the note exists
+    cursor.execute(
+        "SELECT * FROM notes WHERE id = %s",
+        (note_id,)
+    )
+
+    note = cursor.fetchone()
+
+    if note is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Note not found"
+        )
+
+    # Delete the note
+    cursor.execute(
+        "DELETE FROM notes WHERE id = %s",
+        (note_id,)
+    )
+
+    connection.commit()
+
+    return {    #type: ignore
+        "message": "Note deleted successfully",
+        "id": note_id
     }
