@@ -71,10 +71,69 @@ def get_food(food_id: int):
     if food is None:
         raise HTTPException(status_code=404, detail="Food not found")
 
-    return {        #type: ignore
+    return {          #type: ignore
         "id": food[0],
         "name": food[1],
         "calories": food[2],
         "protein": float(food[3])
     }
 
+@app.put("/foods/{food_id}")
+def update_food(food_id: int, food: Food):
+
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT * FROM foods WHERE id = %s",
+        (food_id,)
+    )
+
+    existing_food = cursor.fetchone()
+
+    if existing_food is None:
+        raise HTTPException(status_code=404, detail="Food not found")
+
+    cursor.execute(
+        """
+        UPDATE foods
+        SET name = %s, calories = %s, protein = %s
+        WHERE id = %s
+        """,
+        (food.name, food.calories, food.protein, food_id)
+    )
+
+    connection.commit()
+
+    return {          #type: ignore
+        "id": food_id,
+        "name": food.name,
+        "calories": food.calories,
+        "protein": food.protein
+    }
+
+@app.delete("/foods/{food_id}")
+def delete_food(food_id: int):
+
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT * FROM foods WHERE id = %s",
+        (food_id,)
+    )
+
+    food = cursor.fetchone()
+
+    if food is None:
+        raise HTTPException(status_code=404, detail="Food not found")
+
+    cursor.execute(
+        "DELETE FROM foods WHERE id = %s",
+        (food_id,)
+    )
+
+    connection.commit()
+
+    return {          #type: ignore
+        "message": "Food deleted successfully",
+        "id": food_id
+    }
