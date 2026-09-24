@@ -1,3 +1,4 @@
+import pymysql
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from backend.database import connection
@@ -1173,4 +1174,132 @@ def delete_note(note_id: int):
     return {    #type: ignore
         "message": "Note deleted successfully",
         "id": note_id
+    }
+
+@app.get("/users/{user_id}/dashboard")
+def get_dashboard(user_id: int):
+    # Check that the user exists
+    cursor = connection.cursor(pymysql.cursors.DictCursor)
+
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if not user:
+        cursor.close()
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Get today's calorie and protein summary
+    cursor.execute(
+        """
+        SELECT
+            COALESCE(SUM(foods.calories * food_entries.quantity), 0) AS calories_consumed,
+            COALESCE(SUM(foods.protein * food_entries.quantity), 0) AS protein_consumed
+        FROM food_entries
+        JOIN foods ON food_entries.food_id = foods.id
+        WHERE food_entries.user_id = %s
+        AND food_entries.entry_date = CURDATE()
+        """,
+        (user_id,)
+    )
+
+    summary = cursor.fetchone()
+
+    # Calculate calorie target
+    if user["sex"].lower() == "male":
+        bmr = (
+            (10 * float(user["weight"]))
+            + (6.25 * float(user["height"]))
+            - (5 * user["age"])
+            + 5
+        )
+    else:
+        bmr = (
+            (10 * float(user["weight"]))
+            + (6.25 * float(user["height"]))
+            - (5 * user["age"])
+            - 161
+        )
+
+    activity_factor = ACTIVITY_FACTORS.get(
+        user["activity_level"].lower()
+    )
+
+    if activity_factor is None:
+        cursor.close()
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid activity level"
+        )
+
+    tdee = bmr * activity_factor
+
+    if user["goal"].lower() == "weight loss":
+        daily_calorie_target = tdee - 500
+    elif user["goal"].lower() == "weight gain":
+        daily_calorie_target = tdee + 300
+    else:
+        daily_calorie_target = tdee
+
+    calories_consumed = int(summary["calories_consumed"])
+    protein_consumed = float(summary["protein_consumed"])
+    calories_remaining = round(daily_calorie_target) - calories_consumed
+
+    # Get starting weight
+    cursor.execute(
+        """
+        SELECT weight
+        FROM weight_entries
+        WHERE user_id = %s
+        ORDER BY date ASC, id ASC
+        LIMIT 1
+        """,
+        (user_id,)
+    )
+
+    starting_weight = cursor.fetchone()
+
+    # Get current weight
+    cursor.execute(
+        """
+        SELECT weight
+        FROM weight_entries
+        WHERE user_id = %s
+        ORDER BY date DESC, id DESC
+        LIMIT 1
+        """,
+        (user_id,)
+    )
+
+    current_weight = cursor.fetchone()
+
+    cursor.close()
+
+    if starting_weight and current_weight:
+        starting = float(starting_weight["weight"])
+        current = float(current_weight["weight"])
+        weight_change = current - starting
+    else:
+        starting = None
+        current = None
+        weight_change = None
+
+    return {     #type: ignore
+        "user_id": user_id,
+        "calories": {
+            "target": round(daily_calorie_target),
+            "consumed": calories_consumed,
+            "remaining": calories_remaining
+        },
+        "protein": {
+            "consumed": protein_consumed
+        },
+        "weight": {
+            "starting": starting,
+            "current": current,
+            "change": weight_change
+        }
     }
