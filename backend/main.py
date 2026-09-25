@@ -1,5 +1,6 @@
 import pymysql
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from backend.database import connection
 
@@ -43,6 +44,14 @@ ACTIVITY_FACTORS = {
     "very active": 1.725,
     "extra active": 1.9
 }
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def home():
@@ -427,7 +436,10 @@ def create_food_entry(entry: FoodEntry):
             status_code=400,
             detail="Quantity must be greater than 0"
         )
-
+    if entry.entry_date is None:
+        from datetime import date
+        entry.entry_date = str(date.today())
+    
     # Save the food entry
     cursor.execute(
         """
