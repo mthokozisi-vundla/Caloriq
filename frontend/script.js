@@ -1,5 +1,33 @@
 const userId = 1;
 
+async function loadFoods() {
+    try {
+        const response = await fetch(
+            "http://127.0.0.1:8001/foods"
+        );
+
+        if (!response.ok) {
+            throw new Error("Failed to load foods");
+        }
+
+        const foods = await response.json();
+
+        const foodSelect = document.getElementById("food-id");
+
+        foods.forEach(function (food) {
+            const option = document.createElement("option");
+
+            option.value = food.id;
+            option.textContent = food.name;
+
+            foodSelect.appendChild(option);
+        });
+
+    } catch (error) {
+        console.error("Error loading foods:", error);
+    }
+} 
+
 async function loadDashboard() {
     try {
         const response = await fetch(
@@ -92,4 +120,5 @@ document.getElementById("food-entry-form").addEventListener(
     }
 );
 
+loadFoods();
 loadDashboard();
