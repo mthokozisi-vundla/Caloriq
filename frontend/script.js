@@ -27,6 +27,46 @@ async function loadFoods() {
         console.error("Error loading foods:", error);
     }
 } 
+async function loadFoodEntries() {
+    try {
+        const response = await fetch(
+            `http://127.0.0.1:8001/users/${userId}/food-entries`
+        );
+
+        if (!response.ok) {
+            throw new Error("Failed to load food entries");
+        }
+
+        const entries = await response.json();
+
+        const foodEntriesList =
+            document.getElementById("food-entries-list");
+
+        foodEntriesList.innerHTML = "";
+
+        if (entries.length === 0) {
+            foodEntriesList.innerHTML =
+                "<p>No food entries yet.</p>";
+            return;
+        }
+
+        entries.forEach(function (entry) {
+            const foodEntry = document.createElement("div");
+
+            foodEntry.className = "food-entry";
+
+            foodEntry.innerHTML = `
+                <strong>${entry.food_name}</strong>
+                <span>${entry.quantity} × ${entry.meal}</span>
+            `;
+
+            foodEntriesList.appendChild(foodEntry);
+        });
+
+    } catch (error) {
+        console.error("Error loading food entries:", error);
+    }
+}
 
 async function loadDashboard() {
     try {
@@ -112,6 +152,7 @@ document.getElementById("food-entry-form").addEventListener(
             document.getElementById("food-entry-form").reset();
 
             await loadDashboard();
+            await loadFoodEntries();
 
         } catch (error) {
             console.error("Error adding food:", error);
@@ -121,4 +162,5 @@ document.getElementById("food-entry-form").addEventListener(
 );
 
 loadFoods();
+loadFoodEntries();
 loadDashboard();

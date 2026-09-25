@@ -2,7 +2,7 @@ import pymysql
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from backend.database import connection
+from backend.database import get_connection
 
 class Food(BaseModel):
     name: str
@@ -67,6 +67,7 @@ def about():
 
 @app.get("/foods")
 def get_foods():
+    connection = get_connection()
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM foods")
     foods = cursor.fetchall()
@@ -84,6 +85,7 @@ def get_foods():
 
 @app.post("/foods")
 def create_food(food: Food):
+    connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute(
@@ -104,6 +106,7 @@ def create_food(food: Food):
 
 @app.get("/foods/{food_id}")
 def get_food(food_id: int):
+    connection = get_connection()
     cursor = connection.cursor()
     cursor.execute(
         "SELECT * FROM foods WHERE id = %s",
@@ -125,6 +128,7 @@ def get_food(food_id: int):
 @app.put("/foods/{food_id}")
 def update_food(food_id: int, food: Food):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute(
@@ -158,6 +162,7 @@ def update_food(food_id: int, food: Food):
 @app.delete("/foods/{food_id}")
 def delete_food(food_id: int):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute(
@@ -185,6 +190,7 @@ def delete_food(food_id: int):
 @app.post("/users")
 def create_user(user: User):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute(
@@ -220,6 +226,7 @@ def create_user(user: User):
 
 @app.get("/users")
 def get_users():
+    connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute("SELECT * FROM users")
@@ -243,6 +250,7 @@ def get_users():
 @app.get("/users/{user_id}")
 def get_user(user_id: int):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute(
@@ -400,6 +408,7 @@ def get_calorie_target(user_id: int):
 @app.post("/food-entries")
 def create_food_entry(entry: FoodEntry):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the user exists
@@ -472,7 +481,9 @@ def create_food_entry(entry: FoodEntry):
 @app.get("/users/{user_id}/food-entries")
 def get_food_entries(user_id: int):
 
-    cursor = connection.cursor()
+    connection = get_connection()
+
+    cursor = connection.cursor(pymysql.cursors.DictCursor)
 
     # Check that the user exists
     cursor.execute(
@@ -483,6 +494,8 @@ def get_food_entries(user_id: int):
     user = cursor.fetchone()
 
     if user is None:
+        cursor.close()
+        connection.close()
         raise HTTPException(
             status_code=404,
             detail="User not found"
@@ -511,19 +524,22 @@ def get_food_entries(user_id: int):
 
     entries = cursor.fetchall()
 
-    return [
-        { # type: ignore
-            "id": entry[0],
-            "user_id": entry[1],
-            "food_id": entry[2],
-            "food_name": entry[3],
-            "calories_per_unit": entry[4],
-            "protein_per_unit": float(entry[5]),
-            "quantity": entry[6],
-            "meal": entry[7],
-            "entry_date": str(entry[8]),
-            "total_calories": entry[4] * entry[6],
-            "total_protein": float(entry[5]) * entry[6]
+    cursor.close()
+    connection.close()
+
+    return [        #type: ignore
+        {
+            "id": entry["id"],
+            "user_id": entry["user_id"],
+            "food_id": entry["food_id"],
+            "food_name": entry["name"],
+            "calories_per_unit": entry["calories"],
+            "protein_per_unit": float(entry["protein"]),
+            "quantity": entry["quantity"],
+            "meal": entry["meal"],
+            "entry_date": str(entry["entry_date"]),
+            "total_calories": entry["calories"] * entry["quantity"],
+            "total_protein": float(entry["protein"]) * entry["quantity"]
         }
         for entry in entries
     ]
@@ -531,7 +547,8 @@ def get_food_entries(user_id: int):
 @app.get("/users/{user_id}/daily-summary")
 def get_daily_summary(user_id: int):
 
-    cursor = connection.cursor()
+    connection = get_connection()
+    cursor = connection.cursor(pymysql.cursors.DictCursor)
 
     # Check that the user exists
     cursor.execute(
@@ -613,6 +630,7 @@ def get_daily_summary(user_id: int):
 @app.delete("/food-entries/{entry_id}")
 def delete_food_entry(entry_id: int):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the food entry exists
@@ -645,6 +663,7 @@ def delete_food_entry(entry_id: int):
 @app.put("/food-entries/{entry_id}")
 def update_food_entry(entry_id: int, entry: FoodEntry):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the food entry exists
@@ -732,6 +751,7 @@ def update_food_entry(entry_id: int, entry: FoodEntry):
 @app.post("/weight-entries")
 def create_weight_entry(entry: WeightEntry):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the user exists
@@ -783,6 +803,7 @@ def create_weight_entry(entry: WeightEntry):
 @app.get("/users/{user_id}/weight-entries")
 def get_weight_entries(user_id: int):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the user exists
@@ -829,6 +850,7 @@ def get_weight_entries(user_id: int):
 @app.get("/users/{user_id}/weight-summary")
 def get_weight_summary(user_id: int):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the user exists
@@ -897,6 +919,7 @@ def get_weight_summary(user_id: int):
 @app.put("/weight-entries/{entry_id}")
 def update_weight_entry(entry_id: int, entry: WeightEntry):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the weight entry exists
@@ -964,6 +987,7 @@ def update_weight_entry(entry_id: int, entry: WeightEntry):
 @app.delete("/weight-entries/{entry_id}")
 def delete_weight_entry(entry_id: int):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the weight entry exists
@@ -996,6 +1020,7 @@ def delete_weight_entry(entry_id: int):
 @app.post("/notes")
 def create_note(note: Note):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the user exists
@@ -1047,6 +1072,7 @@ def create_note(note: Note):
 @app.get("/users/{user_id}/notes")
 def get_notes(user_id: int):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the user exists
@@ -1092,6 +1118,7 @@ def get_notes(user_id: int):
 @app.put("/notes/{note_id}")
 def update_note(note_id: int, note: Note):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the note exists
@@ -1159,6 +1186,7 @@ def update_note(note_id: int, note: Note):
 @app.delete("/notes/{note_id}")
 def delete_note(note_id: int):
 
+    connection = get_connection()
     cursor = connection.cursor()
 
     # Check that the note exists
@@ -1191,6 +1219,7 @@ def delete_note(note_id: int):
 @app.get("/users/{user_id}/dashboard")
 def get_dashboard(user_id: int):
     # Check that the user exists
+    connection = get_connection()
     cursor = connection.cursor(pymysql.cursors.DictCursor)
 
     cursor.execute(
@@ -1202,6 +1231,7 @@ def get_dashboard(user_id: int):
 
     if not user:
         cursor.close()
+        connection.close()
         raise HTTPException(status_code=404, detail="User not found")
 
     # Get today's calorie and protein summary
@@ -1289,6 +1319,7 @@ def get_dashboard(user_id: int):
     current_weight = cursor.fetchone()
 
     cursor.close()
+    connection.close()
 
     if starting_weight and current_weight:
         starting = float(starting_weight["weight"])
