@@ -86,7 +86,40 @@
 
         </div>
     </section>
+             <section class="dashboard-card food-entry-card">
+            <h2>Add Food</h2>
 
+            <form id="food-entry-form">
+
+                <label for="food-id">Food ID</label>
+                <input
+                    type="number"
+                    id="food-id"
+                    min="1"
+                    required
+                >
+
+                <label for="quantity">Quantity</label>
+                <input
+                    type="number"
+                    id="quantity"
+                    min="1"
+                    required
+                >
+
+                <label for="meal">Meal</label>
+                <select id="meal" required>
+                    <option value="">Select a meal</option>
+                    <option value="Breakfast">Breakfast</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                    <option value="Snack">Snack</option>
+                </select>
+
+                <button type="submit">Add Food</button>
+
+            </form>
+        </section>
 </main>
 
 <script src="script.js"></script>
