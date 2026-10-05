@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+
 
 ```
 <title>Caloriq</title>
@@ -16,115 +18,63 @@
 <body>
 
 ```
-<header class="header">
-    <div>
-        <h1>Caloriq</h1>
-        <p>Your daily nutrition dashboard</p>
+<div class="header">
+  <h1>Caloriq</h1>
+  <p>Your daily nutrition dashboard</p>
+</div>
+
+<div class="dashboard">
+  <!-- Calories -->
+  <div class="dashboard-card">
+    <h2>Today's Calories</h2>
+    <div class="main-stat">
+      <strong id="calories-target">0</strong>
+      <span>Target kcal</span>
     </div>
-</header>
+    <div class="stat">
+      <span>Consumed</span>
+      <strong id="calories-consumed">0</strong>
+    </div>
+    <div class="stat">
+      <span>Remaining</span>
+      <strong id="calories-remaining">0</strong>
+    </div>
+  </div>
 
-<main class="dashboard">
+  <!-- Protein -->
+  <div class="dashboard-card">
+    <h2>Protein</h2>
+    <div class="main-stat">
+      <strong id="protein-consumed">0</strong>
+      <span>grams</span>
+    </div>
+  </div>
 
-    <section class="dashboard-card calories-card">
-        <h2>Today's Calories</h2>
+  <!-- Weight -->
+  <div class="dashboard-card">
+    <h2>Weight</h2>
+    <div class="weight-stats">
+      <div class="stat">
+        <span>Starting</span>
+        <strong id="weight-starting">0 kg</strong>
+      </div>
+      <div class="stat">
+        <span>Current</span>
+        <strong id="weight-current">0 kg</strong>
+      </div>
+      <div class="stat">
+        <span>Change</span>
+        <strong id="weight-change">0 kg</strong>
+      </div>
+    </div>
+  </div>
 
-        <div class="stat">
-            <span>Target</span>
-            <strong><span id="calorie-target">0</span> kcal</strong>
-        </div>
-
-        <div class="stat">
-            <span>Consumed</span>
-            <strong><span id="calories-consumed">0</span> kcal</strong>
-        </div>
-
-        <div class="stat">
-            <span>Remaining</span>
-            <strong><span id="calories-remaining">0</span> kcal</strong>
-        </div>
-    </section>
-
-
-    <section class="dashboard-card">
-        <h2>Protein</h2>
-
-        <div class="main-stat">
-            <strong>
-                <span id="protein-consumed">0</span> g
-            </strong>
-
-            <span>Consumed today</span>
-        </div>
-    </section>
-
-
-    <section class="dashboard-card">
-        <h2>Weight</h2>
-
-        <div class="weight-stats">
-
-            <div class="stat">
-                <span>Starting</span>
-                <strong>
-                    <span id="starting-weight">0</span> kg
-                </strong>
-            </div>
-
-            <div class="stat">
-                <span>Current</span>
-                <strong>
-                    <span id="current-weight">0</span> kg
-                </strong>
-            </div>
-
-            <div class="stat">
-                <span>Change</span>
-                <strong>
-                    <span id="weight-change">0</span> kg
-                </strong>
-            </div>
-
-        </div>
-    </section>
-             <section class="dashboard-card food-entry-card">
-            <h2>Add Food</h2>
-
-            <form id="food-entry-form">
-
-                <label for="food-id">Food</label>
-<select id="food-id" required>
-    <option value="">Select a food</option>
-</select>
-                
-
-                <label for="quantity">Quantity</label>
-                <input
-                    type="number"
-                    id="quantity"
-                    min="1"
-                    required
-                >
-
-                <label for="meal">Meal</label>
-                <select id="meal" required>
-                    <option value="">Select a meal</option>
-                    <option value="Breakfast">Breakfast</option>
-                    <option value="Lunch">Lunch</option>
-                    <option value="Dinner">Dinner</option>
-                    <option value="Snack">Snack</option>
-                </select>
-
-                <button type="submit">Add Food</button>
-
-            </form>
-        </section>
-        <section class="dashboard-card">
-            <h2>Today's Food</h2>
-
-            <div id="food-entries-list">
-                <p>No food entries yet.</p>
-            </div>
-        </section>
+  <!-- Today's Food -->
+  <div class="dashboard-card">
+    <h2>Today's Food</h2>
+    <div id="food-entries"></div>
+  </div>
+</div>
 
 </main>
 
