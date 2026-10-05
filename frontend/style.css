@@ -171,3 +171,35 @@ button:hover {
 #food-entries .stat button {
   margin-left: 10px;
 }
+
+#weight-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+#weight-form input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+#weight-form button {
+  background-color: #4CAF50;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+#weight-form button:hover {
+  background-color: #3e8e41;
+}
+
+#weight-status {
+  margin-top: 8px;
+  font-weight: 500;
+}
