@@ -164,3 +164,64 @@ document.getElementById("food-entry-form").addEventListener(
 loadFoods();
 loadFoodEntries();
 loadDashboard();
+
+async function loadDashboard(userId = 1) {
+  try {
+    const res = await fetch(`http://127.0.0.1:8001/users/${userId}/dashboard`);
+    const data = await res.json();
+
+    // Calories
+    document.getElementById("calories-target").textContent = data.calorie_target;
+    document.getElementById("calories-consumed").textContent = data.calories_consumed;
+    document.getElementById("calories-remaining").textContent = data.calories_remaining;
+
+    // Protein
+    document.getElementById("protein-consumed").textContent = data.protein_consumed;
+
+    // Weight
+    document.getElementById("weight-starting").textContent = data.weight_starting + " kg";
+    document.getElementById("weight-current").textContent = data.weight_current + " kg";
+    document.getElementById("weight-change").textContent = data.weight_change + " kg";
+  } catch (err) {
+    console.error("Dashboard load failed:", err);
+  }
+}
+
+async function loadFoodEntries(userId = 1) {
+  try {
+    const res = await fetch(`http://127.0.0.1:8001/users/${userId}/food-entries`);
+    const entries = await res.json();
+
+    const container = document.getElementById("food-entries");
+    container.innerHTML = "";
+
+    entries.forEach(entry => {
+      const div = document.createElement("div");
+      div.className = "stat";
+      div.innerHTML = `
+        <span>${entry.food_name} (${entry.quantity} × ${entry.meal})</span>
+        <strong>${entry.total_calories} kcal | ${entry.total_protein} g protein</strong>
+        <button onclick="deleteFood(${entry.id})">Delete</button>
+      `;
+      container.appendChild(div);
+    });
+  } catch (err) {
+    console.error("Food entries load failed:", err);
+  }
+}
+
+async function deleteFood(entryId) {
+  try {
+    await fetch(`http://127.0.0.1:8001/food-entries/${entryId}`, { method: "DELETE" });
+    loadFoodEntries();
+    loadDashboard();
+  } catch (err) {
+    console.error("Delete failed:", err);
+  }
+}
+
+// Load everything on page start
+window.onload = () => {
+  loadDashboard();
+  loadFoodEntries();
+};
