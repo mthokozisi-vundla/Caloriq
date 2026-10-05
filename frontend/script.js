@@ -1,4 +1,4 @@
-const userId = 1;
+
 
 async function loadFoods() {
     try {
