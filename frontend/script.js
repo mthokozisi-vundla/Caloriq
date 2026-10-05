@@ -187,6 +187,38 @@ async function loadDashboard(userId = 1) {
   }
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+  const weightForm = document.getElementById("weight-form");
+  if (weightForm) {
+    weightForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const weight = parseFloat(document.getElementById("weight-input").value);
+
+      try {
+        const res = await fetch("http://127.0.0.1:8001/weight-entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: 1,
+            weight: weight,
+            entry_date: new Date().toISOString().split("T")[0]
+          })
+        });
+
+        const data = await res.json();
+        document.getElementById("weight-status").textContent =
+          res.ok ? `✅ ${data.message}` : "⚠️ Failed to update weight.";
+        document.getElementById("weight-input").value = "";
+        loadDashboard();
+      } catch (err) {
+        console.error("Weight update failed:", err);
+        document.getElementById("weight-status").textContent =
+          "❌ Error connecting to server.";
+      }
+    });
+  }
+});
+
 async function loadFoodEntries(userId = 1) {
   try {
     const res = await fetch(`http://127.0.0.1:8001/users/${userId}/food-entries`);
