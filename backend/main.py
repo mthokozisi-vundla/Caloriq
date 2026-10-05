@@ -1346,3 +1346,22 @@ def get_dashboard(user_id: int):
             "change": weight_change
         }
     }
+
+from pydantic import BaseModel
+
+class WeightEntry(BaseModel):
+    user_id: int
+    weight: float
+    entry_date: str
+
+@app.post("/weight-entries")
+def add_weight(entry: WeightEntry):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO weight_entries (user_id, weight, entry_date) VALUES (%s, %s, %s)",
+        (entry.user_id, entry.weight, entry.entry_date)
+    )
+    conn.commit()
+    conn.close()
+    return {"message": "Weight entry added successfully"}
