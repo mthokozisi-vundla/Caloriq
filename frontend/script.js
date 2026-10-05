@@ -280,3 +280,31 @@ window.onload = () => {
   loadDashboard();
   loadFoodEntries();
 };
+
+document.getElementById("weight-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const weight = parseFloat(document.getElementById("weight-input").value);
+
+  try {
+    const res = await fetch("http://127.0.0.1:8001/weight-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: 1,
+        weight: weight,
+        entry_date: new Date().toISOString().split("T")[0]
+      })
+    });
+
+    if (res.ok) {
+      document.getElementById("weight-status").textContent = "✅ Weight updated successfully!";
+      document.getElementById("weight-input").value = "";
+      loadDashboard(); // refresh dashboard stats
+    } else {
+      document.getElementById("weight-status").textContent = "⚠️ Failed to update weight.";
+    }
+  } catch (err) {
+    console.error("Weight update failed:", err);
+    document.getElementById("weight-status").textContent = "❌ Error connecting to server.";
+  }
+});
