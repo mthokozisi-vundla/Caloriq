@@ -483,3 +483,76 @@ async function loadDailySummary() {
     console.error("Failed to load summary:", err);
   }
 }
+
+async function loadWeeklyTrends() {
+  try {
+    const res = await fetch("http://127.0.0.1:8001/users/1/weekly-trends");
+    const data = await res.json();
+
+    const dates = data.food.map(entry => entry.date);
+    const calories = data.food.map(entry => entry.calories);
+    const protein = data.food.map(entry => entry.protein);
+    const weights = data.weight.map(entry => entry.weight);
+
+    const ctx = document.getElementById("weeklyChart").getContext("2d");
+
+    new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: dates,
+        datasets: [
+          {
+            label: "Calories 🍎",
+            data: calories,
+            borderColor: "#FF9800",
+            backgroundColor: "rgba(255,152,0,0.2)",
+            fill: true,
+            tension: 0.4
+          },
+          {
+            label: "Protein 💪",
+            data: protein,
+            borderColor: "#2196F3",
+            backgroundColor: "rgba(33,150,243,0.2)",
+            fill: true,
+            tension: 0.4
+          },
+          {
+            label: "Weight ⚖️",
+            data: weights,
+            borderColor: "#4CAF50",
+            backgroundColor: "rgba(76,175,80,0.2)",
+            fill: false,
+            tension: 0.4,
+            yAxisID: "y1"
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: {
+            display: true,
+            text: "Weekly Trends Overview 📊",
+            font: { size: 18, weight: "bold" }
+          }
+        },
+        scales: {
+          y: {
+            title: { display: true, text: "Calories / Protein" }
+          },
+          y1: {
+            position: "right",
+            title: { display: true, text: "Weight (kg)" },
+            grid: { drawOnChartArea: false }
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error("Failed to load weekly trends:", err);
+  }
+}
+
+// Call it when dashboard loads
+loadWeeklyTrends();
