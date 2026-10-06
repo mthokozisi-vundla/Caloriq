@@ -373,3 +373,39 @@ window.addEventListener("load", () => {
     }
   });
 });
+
+async function loadWeightHistory() {
+  try {
+    const res = await fetch("http://127.0.0.1:8001/users/1/weight-history");
+    const data = await res.json();
+
+    const dates = data.map(entry => entry.entry_date);
+    const weights = data.map(entry => entry.weight);
+
+    const ctx = document.getElementById("weightChart").getContext("2d");
+    new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: dates,
+        datasets: [{
+          label: "Weight (kg)",
+          data: weights,
+          borderColor: "#4CAF50",
+          backgroundColor: "rgba(76,175,80,0.2)",
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: false }
+        }
+      }
+    });
+  } catch (err) {
+    console.error("Failed to load weight history:", err);
+  }
+}
+
+// Call it when dashboard loads
+loadWeightHistory();
