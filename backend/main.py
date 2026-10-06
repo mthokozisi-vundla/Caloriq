@@ -1377,3 +1377,33 @@ def get_weight_history(user_id: int):
     rows = cursor.fetchall()
     conn.close()
     return [{"entry_date": r[0], "weight": r[1]} for r in rows]
+
+@app.get("/users/{user_id}/daily-summary")
+def get_daily_summary(user_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Calories & protein totals
+    cursor.execute("""
+        SELECT SUM(calories), SUM(protein)
+        FROM food_entries
+        WHERE user_id = %s AND entry_date = CURRENT_DATE
+    """, (user_id,))
+    food_totals = cursor.fetchone()
+
+    # Latest weight
+    cursor.execute("""
+        SELECT weight
+        FROM weight_entries
+        WHERE user_id = %s
+        ORDER BY entry_date DESC
+        LIMIT 1
+    """, (user_id,))
+    weight_row = cursor.fetchone()
+
+    conn.close()
+    return {
+        "calories": food_totals[0] or 0,
+        "protein": food_totals[1] or 0,
+        "weight": weight_row[0] if weight_row else None
+    }
