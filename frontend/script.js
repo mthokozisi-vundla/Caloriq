@@ -452,3 +452,34 @@ async function loadDailySummary() {
 // Call it when dashboard loads
 loadDailySummary();
 
+async function loadDailySummary() {
+  try {
+    const res = await fetch("http://127.0.0.1:8001/users/1/daily-summary");
+    const data = await res.json();
+
+    // Update text
+    document.getElementById("summary-calories").textContent =
+      `🍎 Calories: ${data.calories}`;
+    document.getElementById("summary-protein").textContent =
+      `💪 Protein: ${data.protein} g`;
+    document.getElementById("summary-weight").textContent =
+      `⚖️ Weight: ${data.weight ?? "--"} kg`;
+
+    // Progress bars (targets: 2000 kcal, 100 g protein)
+    const caloriePercent = Math.min((data.calories / 2000) * 100, 100);
+    const proteinPercent = Math.min((data.protein / 100) * 100, 100);
+
+    document.getElementById("calorie-progress").style.width =
+      caloriePercent + "%";
+    document.getElementById("protein-progress").style.width =
+      proteinPercent + "%";
+
+    // Show % inside bar
+    document.getElementById("calorie-progress").textContent =
+      Math.round(caloriePercent) + "%";
+    document.getElementById("protein-progress").textContent =
+      Math.round(proteinPercent) + "%";
+  } catch (err) {
+    console.error("Failed to load summary:", err);
+  }
+}
