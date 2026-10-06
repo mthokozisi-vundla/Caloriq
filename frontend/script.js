@@ -556,3 +556,11 @@ async function loadWeeklyTrends() {
 
 // Call it when dashboard loads
 loadWeeklyTrends();
+
+function exportCSV() {
+  window.open("http://127.0.0.1:8001/users/1/export-csv", "_blank");
+}
+
+function exportPDF() {
+  window.open("http://127.0.0.1:8001/users/1/export-pdf", "_blank");
+}
