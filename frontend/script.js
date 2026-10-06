@@ -564,3 +564,37 @@ function exportCSV() {
 function exportPDF() {
   window.open("http://127.0.0.1:8001/users/1/export-pdf", "_blank");
 }
+
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const username = document.getElementById("username").value;
+  const password = document.getElementById("password").value;
+
+  try {
+    const res = await fetch("http://127.0.0.1:8001/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `username=${username}&password=${password}`
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      localStorage.setItem("token", data.access_token);
+      document.getElementById("login-status").textContent = "✅ Login successful!";
+      // Reload dashboard with user-specific data
+      loadDailySummary();
+      loadWeightHistory();
+      loadWeeklyTrends();
+    } else {
+      document.getElementById("login-status").textContent = "❌ Login failed.";
+    }
+  } catch (err) {
+    console.error("Login error:", err);
+    document.getElementById("login-status").textContent = "⚠️ Error connecting to server.";
+  }
+});
+
+const token = localStorage.getItem("token");
+const res = await fetch("http://127.0.0.1:8001/users/1/daily-summary", {
+  headers: { "Authorization": `Bearer ${token}` }
+});
