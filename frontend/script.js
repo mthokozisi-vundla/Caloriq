@@ -432,3 +432,23 @@ async function loadWeightHistory() {
 
 // Call it when dashboard loads
 loadWeightHistory();
+
+async function loadDailySummary() {
+  try {
+    const res = await fetch("http://127.0.0.1:8001/users/1/daily-summary");
+    const data = await res.json();
+
+    document.getElementById("summary-calories").textContent =
+      `🍎 Calories: ${data.calories}`;
+    document.getElementById("summary-protein").textContent =
+      `💪 Protein: ${data.protein} g`;
+    document.getElementById("summary-weight").textContent =
+      `⚖️ Weight: ${data.weight ?? "--"} kg`;
+  } catch (err) {
+    console.error("Failed to load summary:", err);
+  }
+}
+
+// Call it when dashboard loads
+loadDailySummary();
+
