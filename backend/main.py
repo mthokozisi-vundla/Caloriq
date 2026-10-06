@@ -1494,3 +1494,44 @@ def export_pdf(user_id: int):
 
     return StreamingResponse(buffer, media_type="application/pdf",
                              headers={"Content-Disposition": "attachment; filename=report.pdf"})
+
+from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import jwt, datetime
+
+SECRET_KEY = "supersecretkey"
+ALGORITHM = "HS256"
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Fake user store (replace with DB later)
+users = {"morajane": {"username": "morajane", "password": "1234", "id": 1}}
+
+def authenticate_user(username: str, password: str):
+    user = users.get(username)
+    if not user or user["password"] != password:
+        return None
+    return user
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+@app.post("/token")
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid credentials")
+    token = create_access_token({"sub": user["username"], "id": user["id"]})
+    return {"access_token": token, "token_type": "bearer"}
+
+@app.get("/users/me")
+def read_users_me(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return {"username": payload["sub"], "id": payload["id"]}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
