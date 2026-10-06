@@ -1407,3 +1407,33 @@ def get_daily_summary(user_id: int):
         "protein": food_totals[1] or 0,
         "weight": weight_row[0] if weight_row else None
     }
+
+@app.get("/users/{user_id}/weekly-trends")
+def get_weekly_trends(user_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Calories & protein totals per day
+    cursor.execute("""
+        SELECT entry_date, SUM(calories), SUM(protein)
+        FROM food_entries
+        WHERE user_id = %s AND entry_date >= CURRENT_DATE - INTERVAL '7 days'
+        GROUP BY entry_date
+        ORDER BY entry_date ASC
+    """, (user_id,))
+    food_rows = cursor.fetchall()
+
+    # Weight entries per day
+    cursor.execute("""
+        SELECT entry_date, weight
+        FROM weight_entries
+        WHERE user_id = %s AND entry_date >= CURRENT_DATE - INTERVAL '7 days'
+        ORDER BY entry_date ASC
+    """, (user_id,))
+    weight_rows = cursor.fetchall()
+
+    conn.close()
+    return {
+        "food": [{"date": r[0], "calories": r[1], "protein": r[2]} for r in food_rows],
+        "weight": [{"date": r[0], "weight": r[1]} for r in weight_rows]
+    }
