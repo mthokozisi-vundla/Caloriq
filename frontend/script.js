@@ -210,6 +210,7 @@ document.addEventListener("DOMContentLoaded", () => {
           res.ok ? `✅ ${data.message}` : "⚠️ Failed to update weight.";
         document.getElementById("weight-input").value = "";
         loadDashboard();
+        loadWeightHistory();
       } catch (err) {
         console.error("Weight update failed:", err);
         document.getElementById("weight-status").textContent =
@@ -383,6 +384,7 @@ async function loadWeightHistory() {
     const weights = data.map(entry => entry.weight);
 
     const ctx = document.getElementById("weightChart").getContext("2d");
+
     new Chart(ctx, {
       type: "line",
       data: {
@@ -391,14 +393,35 @@ async function loadWeightHistory() {
           label: "Weight (kg)",
           data: weights,
           borderColor: "#4CAF50",
-          backgroundColor: "rgba(76,175,80,0.2)",
-          tension: 0.3
+          backgroundColor: "rgba(76, 175, 80, 0.2)",
+          fill: true,
+          tension: 0.4, // smooth curve
+          pointStyle: "circle",
+          pointRadius: 5,
+          pointBackgroundColor: "#2e7d32"
         }]
       },
       options: {
         responsive: true,
+        plugins: {
+          title: {
+            display: true,
+            text: "Your Weight Journey 📈",
+            font: { size: 18, weight: "bold" },
+            color: "#333"
+          },
+          legend: {
+            labels: { color: "#333", font: { size: 14 } }
+          }
+        },
         scales: {
-          y: { beginAtZero: false }
+          x: {
+            title: { display: true, text: "Date" }
+          },
+          y: {
+            title: { display: true, text: "Weight (kg)" },
+            beginAtZero: false
+          }
         }
       }
     });
