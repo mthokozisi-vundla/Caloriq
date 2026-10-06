@@ -1365,3 +1365,15 @@ def add_weight(entry: WeightEntry):
     conn.commit()
     conn.close()
     return {"message": "Weight entry added successfully"}
+
+@app.get("/users/{user_id}/weight-history")
+def get_weight_history(user_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT entry_date, weight FROM weight_entries WHERE user_id = %s ORDER BY entry_date ASC",
+        (user_id,)
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"entry_date": r[0], "weight": r[1]} for r in rows]
