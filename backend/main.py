@@ -1437,3 +1437,60 @@ def get_weekly_trends(user_id: int):
         "food": [{"date": r[0], "calories": r[1], "protein": r[2]} for r in food_rows],
         "weight": [{"date": r[0], "weight": r[1]} for r in weight_rows]
     }
+
+import csv
+from fastapi.responses import StreamingResponse
+import io
+from reportlab.pdfgen import canvas
+
+@app.get("/users/{user_id}/export-csv")
+def export_csv(user_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT entry_date, food_name, calories, protein
+        FROM food_entries
+        WHERE user_id = %s
+        ORDER BY entry_date ASC
+    """, (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Food", "Calories", "Protein"])
+    writer.writerows(rows)
+    output.seek(0)
+
+    return StreamingResponse(output, media_type="text/csv",
+                             headers={"Content-Disposition": "attachment; filename=report.csv"})
+
+@app.get("/users/{user_id}/export-pdf")
+def export_pdf(user_id: int):
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer)
+    p.setFont("Helvetica", 12)
+    p.drawString(100, 800, f"User {user_id} Progress Report")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT entry_date, food_name, calories, protein
+        FROM food_entries
+        WHERE user_id = %s
+        ORDER BY entry_date ASC
+    """, (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+
+    y = 770
+    for row in rows:
+        p.drawString(100, y, f"{row[0]} | {row[1]} | {row[2]} kcal | {row[3]} g protein")
+        y -= 20
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+
+    return StreamingResponse(buffer, media_type="application/pdf",
+                             headers={"Content-Disposition": "attachment; filename=report.pdf"})
